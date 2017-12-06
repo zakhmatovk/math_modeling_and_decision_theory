@@ -100,6 +100,51 @@ def get_similars(field, with_current=False):
    reflections[6] = get_reflection(reflections[4], size)
    return reflections
 
+def process(field, value=1):
+   avaliable_steps = 0
+
+   who_wins = check_result(field)
+   if who_wins == cross:
+      tree[field] = (0., 1., 0.)
+      return
+   elif who_wins == zero:
+      tree[field] = (0., 0., 1.)
+      return
+
+   for row in range(size):
+      for col in range(size):
+         if get_value(field, row, col) != 0:
+            continue
+         avaliable_steps += 1
+         new_field = set_value(field, row, col, value)
+         process(new_field, 3 - value)
+         children.setdefault(field, []).append(new_field)
+
+   if avaliable_steps == 0:
+      tree[field] = (1., 0., 0.)
+      return
+   return
+
+def count_results(field):
+   child_list = children.get(field, [])
+   children_total = len(child_list)
+
+   draw_chance_list = []
+   cross_chance_list = []
+   zero_chance_list = []
+
+   for child in child_list:
+      if child in tree:
+         draw_chance, cross_chance, zero_chance = tree[child]
+      else:
+         draw_chance, cross_chance, zero_chance = count_results(child)
+         tree[child] = draw_chance, cross_chance, zero_chance
+      draw_chance_list.append(draw_chance)
+      cross_chance_list.append(cross_chance)
+      zero_chance_list.append(zero_chance)
+   return sum(draw_chance_list) / children_total, sum(cross_chance_list) / children_total, sum(zero_chance_list) / children_total
+
+
 # 1 - 01 - cross
 # 2 - 10 - zero
 cross = 1
@@ -110,14 +155,21 @@ empty_field = 1 << 2 * size * size
 win_crosses = gen_win_results(cross)
 win_zeros = gen_win_results(zero)
 
-field = gen_empty_field()
-for index in range(size - 1):
-   field = set_value(field, index, index, cross)
-field = set_value(field, 2, 1, zero)
-print_field(field)
-print(get_value(field, 2, 1))
-print("================")
-for similar in get_similars(field):
-    print_field(similar)
-    print("================")
-    pass
+empty_field = gen_empty_field()
+field_result = {}
+
+tree = {}
+children = {}
+
+process(empty_field, 1)
+tree[empty_field] = count_results(empty_field)
+
+
+f = gen_empty_field()
+f = set_value(f, 2, 0, cross)
+f = set_value(f, 1, 0, zero)
+f = set_value(f, 2, 1, cross)
+f = set_value(f, 2, 2, zero)
+f = set_value(f, 1, 1, cross)
+f = set_value(f, 0, 0, zero)
+print_field(f)
