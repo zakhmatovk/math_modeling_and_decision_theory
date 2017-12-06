@@ -6,6 +6,9 @@ def get_value(field, row, col):
    return (field >> 2 * size * size - 2 - 2 * row * size - 2 * col) & 3
 
 def print_binary(value):
+   """
+      Выводи поле в двоичном представлении
+   """
    str_value = '{:b}'.format(value)[1:]
    print(' '.join(str_value[index : index + 2 * size] for index in range(0, 2 * size * size, 2 * size)))
 
@@ -28,7 +31,10 @@ def gen_win_results(value):
          results[2 + size + shift] = set_value(results[2 + size + shift], index, shift, value)
    return results
 
-def check_result(field, diff_draw_and_no_end=False):
+def check_result(field):
+   """
+      Проверка поля на конец игры
+   """
    for win_cross_field in win_crosses:
    # Проверка, что выйграли крестики
       if field & win_cross_field == win_cross_field:
@@ -38,8 +44,6 @@ def check_result(field, diff_draw_and_no_end=False):
    for win_zero_field in win_zeros:
       if field & win_zero_field == win_zero_field:
          return zero
-   if diff_draw_and_no_end:
-      return 0
    # Проверка, что ничья
    temp_field = field
    for _ in range(size * size):
@@ -55,6 +59,9 @@ def gen_empty_field():
    return empty_field
 
 def field_to_string(field):
+   """
+      Строкове представление поля. В Виде матрицы
+   """
    crosses = "{:b}".format(field)[2::2]
    zeros = "{:b}".format(field)[1::2]
    str_value = ['_'] * (size * size)
@@ -66,6 +73,9 @@ def field_to_string(field):
    return '\n'.join(' '.join(str_value[index : index + size]) for index in range(0, size * size, size))
 
 def print_field(field):
+   """
+      Печать поля в виде матрицы
+   """
    print(field_to_string(field))
 
 def get_reflection(field, length, double_reflection=False):
@@ -85,15 +95,11 @@ def get_reflection(field, length, double_reflection=False):
       temp_field = (temp_field >> part_shift)
    return new_field
 
-def get_rotations(field):
-   new_field = gen_empty_field()
-   for row in range(size):
-      for col in range(size):
-         new_field = set_value(new_field, size - 1 - col, row, get_value(field, row, col))
-   return new_field
-
 def get_similars(field, with_current=False):
-
+   """
+      Получим список похожих полей.
+      Всевозмодные отражения и повороты.
+   """
    reflections = [gen_empty_field()] * (8 if with_current else 7)
 
    if with_current:
@@ -115,14 +121,23 @@ def get_similars(field, with_current=False):
    return reflections
 
 def process(field, value=1):
+   """
+      Рекурсивно соберем дерево и получим рещультаты для листьев
+   """
    avaliable_steps = 0
+   # Если поле уже встречалось, то дальше идти не нужно
    if field in recents:
       return field
 
+   # Если похожее поле уже встречалось, вернём его и дальше идти не нужно
    for similar_field in get_similars(field):
       if similar_field in recents:
          return similar_field
 
+   # Если такого или похожего поля не было. То отметим, что было
+   recents.add(field)
+
+   # Проверка выйгрыша в листьях
    who_wins = check_result(field)
    if who_wins == cross:
       tree[field] = (0., 1., 0.)
@@ -130,23 +145,28 @@ def process(field, value=1):
    elif who_wins == zero:
       tree[field] = (0., 0., 1.)
       return field
+   # Тут ничья
+   elif who_wins == 0:
+      tree[field] = (1., 0., 0.)
+      return field
 
    for row in range(size):
       for col in range(size):
          if get_value(field, row, col) != 0:
             continue
          avaliable_steps += 1
+         # Сделаем ход
          new_field = set_value(field, row, col, value)
+         # Обработаем поле после хода
          new_field = process(new_field, 3 - value)
-         recents.add(new_field)
+         # Добавим поле или похожее полее в детей
          children.setdefault(field, []).append(new_field)
-
-   if avaliable_steps == 0:
-      tree[field] = (1., 0., 0.)
-      return field
    return field
 
 def count_results(field):
+   """
+      Иерархически рассчитаем вероятности выйгрыша для всех состояний
+   """
    child_list = children.get(field, [])
    children_total = len(child_list)
 
@@ -166,6 +186,14 @@ def count_results(field):
    return sum(draw_chance_list) / children_total, sum(cross_chance_list) / children_total, sum(zero_chance_list) / children_total
 
 def get_best_move(field, player, log=False):
+   """
+      Определим лучший ход.
+      1. Выберем все возможные следующие ходы (на 1 вперёд)
+      2. Из всех выберем ход с максимальным шаносом выйгрыша для {player}
+      3. Из всех выберем ход с минимальным шансом проигрыша для {player}
+      4. Из всех выберем ход с максимальным шансом ничьи для {player}
+      5. Выберем ход с максимальным шансом из п.2-4
+   """
    child_list = []
    for similar_field in get_similars(field, True):
       if similar_field in children:
@@ -190,8 +218,8 @@ def get_best_move(field, player, log=False):
 
    best_child, chance = max([
       max(children_win_chance, key=lambda t: t[1]),
-      min(children_loss_chance, key=lambda t: t[1])
-      #max(children_draw_chance, key=lambda t: t[1])
+      min(children_loss_chance, key=lambda t: t[1]),
+      max(children_draw_chance, key=lambda t: t[1])
    ], key=lambda t: t[1])
    return best_child
 
@@ -247,7 +275,6 @@ tree = {}
 children = {}
 
 process(empty_field, cross)
-
 tree[empty_field] = count_results(empty_field)
 
 continue_game = True
