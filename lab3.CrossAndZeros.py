@@ -28,13 +28,27 @@ def gen_win_results(value):
          results[2 + size + shift] = set_value(results[2 + size + shift], index, shift, value)
    return results
 
-def check_result(field):
+def check_result(field, diff_draw_and_no_end=False):
    for win_cross_field in win_crosses:
+   # Проверка, что выйграли крестики
       if field & win_cross_field == win_cross_field:
          return cross
+
+   # Проверка, что выйграли нолики
    for win_zero_field in win_zeros:
       if field & win_zero_field == win_zero_field:
          return zero
+   if diff_draw_and_no_end:
+      return 0
+   # Проверка, что ничья
+   temp_field = field
+   for _ in range(size * size):
+      if (temp_field & 3) == 0:
+         # Игра не окончена
+         return None
+      else:
+         temp_field = temp_field >> 2
+   # Ничья
    return 0
 
 def gen_empty_field():
@@ -151,6 +165,68 @@ def count_results(field):
       zero_chance_list.append(zero_chance)
    return sum(draw_chance_list) / children_total, sum(cross_chance_list) / children_total, sum(zero_chance_list) / children_total
 
+def get_best_move(field, player, log=False):
+   child_list = []
+   for similar_field in get_similars(field, True):
+      if similar_field in children:
+         child_list = children[similar_field]
+         break;
+   children_win_chance = []
+   children_loss_chance = []
+   children_draw_chance = []
+   for child in child_list:
+      for similar_child in get_similars(child, True):
+         if similar_child in tree:
+            children_win_chance.append((child, tree[similar_child][player]))
+            children_loss_chance.append((child, tree[similar_child][3 - player]))
+            children_draw_chance.append((child, tree[similar_child][0]))
+            break;
+   if log:
+      for child, chance in children_win_chance:
+         print(tree[child])
+         print_field(child)
+   if not children_win_chance:
+      return None
+
+   best_child, chance = max([
+      max(children_win_chance, key=lambda t: t[1]),
+      min(children_loss_chance, key=lambda t: t[1])
+      #max(children_draw_chance, key=lambda t: t[1])
+   ], key=lambda t: t[1])
+   return best_child
+
+def game(field, computer):
+   print_field(field)
+   result = None
+   current_sign = cross
+   while check_result(field) is None:
+      if computer == current_sign:
+         print("Мой ход:")
+         field = get_best_move(field, computer)
+         if field is None:
+            print("Жизнь к такому меня не готовила...")
+            break
+         print_field(field)
+      else:
+         print("Ваш ход:")
+         row = input('Введите строку: ')
+         col = input('Введите колонку: ')
+         if get_value(field, int(row), int(col)) == 0:
+            field = set_value(field, int(row), int(col), 3 - computer)
+         else:
+            print("В клетке ({}, {}) у же есть значение".format(row, col))
+            continue
+         print(field)
+         print_field(field)
+      current_sign = 3 - current_sign
+   else:
+      result = check_result(field)
+   if result == computer:
+      print("Я победил!!!")
+   elif result == (3 - computer):
+      print("Вы победили(")
+   else:
+      print("К сожалению, у нас ничья.")
 
 # 1 - 01 - cross
 # 2 - 10 - zero
@@ -170,27 +246,15 @@ recents = set()
 tree = {}
 children = {}
 
-process(empty_field, 1)
+process(empty_field, cross)
 
 tree[empty_field] = count_results(empty_field)
 
-# for similar in get_similars(list(tree.keys())[-3], True):
-#    print('=========================')
-#    print_field(similar)
+continue_game = True
+computer_value = cross
+while continue_game:
+   computer_value = cross if int(input("Чем мне играть? (1 - Крестики / Другое - Нолики): ")) == 1 else zero
+   game(gen_empty_field(), computer_value)
+   continue_game = int(input("\nСыграем ещё? (1 - Да / Другое - Нет): ")) == 1
 
-
-# for key in tree.keys():
-#    print_field(key)
-#    print('=========================')
-
-print(len(tree.keys()))
-print(tree[empty_field])
-
-# f = gen_empty_field()
-# f = set_value(f, 2, 0, cross)
-# f = set_value(f, 1, 0, zero)
-# f = set_value(f, 2, 1, cross)
-# f = set_value(f, 2, 2, zero)
-# f = set_value(f, 1, 1, cross)
-# f = set_value(f, 0, 0, zero)
-# print_field(f)
+print("Спасибо за игру.")
