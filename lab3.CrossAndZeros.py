@@ -102,14 +102,20 @@ def get_similars(field, with_current=False):
 
 def process(field, value=1):
    avaliable_steps = 0
+   if field in recents:
+      return field
+
+   for similar_field in get_similars(field):
+      if similar_field in recents:
+         return similar_field
 
    who_wins = check_result(field)
    if who_wins == cross:
       tree[field] = (0., 1., 0.)
-      return
+      return field
    elif who_wins == zero:
       tree[field] = (0., 0., 1.)
-      return
+      return field
 
    for row in range(size):
       for col in range(size):
@@ -117,13 +123,14 @@ def process(field, value=1):
             continue
          avaliable_steps += 1
          new_field = set_value(field, row, col, value)
-         process(new_field, 3 - value)
+         new_field = process(new_field, 3 - value)
+         recents.add(new_field)
          children.setdefault(field, []).append(new_field)
 
    if avaliable_steps == 0:
       tree[field] = (1., 0., 0.)
-      return
-   return
+      return field
+   return field
 
 def count_results(field):
    child_list = children.get(field, [])
@@ -155,21 +162,35 @@ empty_field = 1 << 2 * size * size
 win_crosses = gen_win_results(cross)
 win_zeros = gen_win_results(zero)
 
+
 empty_field = gen_empty_field()
 field_result = {}
 
+recents = set()
 tree = {}
 children = {}
 
 process(empty_field, 1)
+
 tree[empty_field] = count_results(empty_field)
 
+# for similar in get_similars(list(tree.keys())[-3], True):
+#    print('=========================')
+#    print_field(similar)
 
-f = gen_empty_field()
-f = set_value(f, 2, 0, cross)
-f = set_value(f, 1, 0, zero)
-f = set_value(f, 2, 1, cross)
-f = set_value(f, 2, 2, zero)
-f = set_value(f, 1, 1, cross)
-f = set_value(f, 0, 0, zero)
-print_field(f)
+
+# for key in tree.keys():
+#    print_field(key)
+#    print('=========================')
+
+print(len(tree.keys()))
+print(tree[empty_field])
+
+# f = gen_empty_field()
+# f = set_value(f, 2, 0, cross)
+# f = set_value(f, 1, 0, zero)
+# f = set_value(f, 2, 1, cross)
+# f = set_value(f, 2, 2, zero)
+# f = set_value(f, 1, 1, cross)
+# f = set_value(f, 0, 0, zero)
+# print_field(f)
