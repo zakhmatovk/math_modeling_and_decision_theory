@@ -202,12 +202,19 @@ def get_best_move(field, player, log=False):
    children_win_chance = []
    children_loss_chance = []
    children_draw_chance = []
+   child_chances = {}
    for child in child_list:
       for similar_child in get_similars(child, True):
          if similar_child in tree:
-            children_win_chance.append((child, tree[similar_child][player]))
-            children_loss_chance.append((child, tree[similar_child][3 - player]))
-            children_draw_chance.append((child, tree[similar_child][0]))
+            chance_to_win = tree[similar_child][player]
+            chance_to_lose = tree[similar_child][3 - player]
+            chance_to_draw = tree[similar_child][0]
+
+            child_chances[child] = (chance_to_draw, chance_to_win, chance_to_lose)
+
+            children_win_chance.append((child, chance_to_win))
+            children_loss_chance.append((child, chance_to_lose))
+            children_draw_chance.append((child, chance_to_draw))
             break;
    if log:
       for child, chance in children_win_chance:
@@ -215,6 +222,11 @@ def get_best_move(field, player, log=False):
          print_field(child)
    if not children_win_chance:
       return None
+
+   win_child, max_chance_to_win = max(children_win_chance, key=lambda t: t[1])
+   chance_to_draw, chance_to_win, chance_to_draw =  child_chances[win_child]
+   if chance_to_win > chance_to_lose:
+      return win_child
 
    best_child, chance = max([
       max(children_win_chance, key=lambda t: t[1]),
@@ -237,10 +249,10 @@ def game(field, computer):
          print_field(field)
       else:
          print("Ваш ход:")
-         row = input('Введите строку: ')
-         col = input('Введите колонку: ')
-         if get_value(field, int(row), int(col)) == 0:
-            field = set_value(field, int(row), int(col), 3 - computer)
+         row = int(input('Введите строку (1-{}): '.format(size))) - 1
+         col = int(input('Введите колонку (1-{}): '.format(size))) - 1
+         if get_value(field, row, col) == 0:
+            field = set_value(field, row, col, 3 - computer)
          else:
             print("В клетке ({}, {}) у же есть значение".format(row, col))
             continue
@@ -261,7 +273,7 @@ def game(field, computer):
 cross = 1
 zero = 2
 
-size = 3
+size = 4
 empty_field = 1 << 2 * size * size
 win_crosses = gen_win_results(cross)
 win_zeros = gen_win_results(zero)
@@ -279,9 +291,19 @@ tree[empty_field] = count_results(empty_field)
 
 continue_game = True
 computer_value = cross
+show_best = False
 while continue_game:
    computer_value = cross if int(input("Чем мне играть? (1 - Крестики / Другое - Нолики): ")) == 1 else zero
    game(gen_empty_field(), computer_value)
+   show_best = True
+   while show_best:
+      show_best = True if int(input("\nПоказать лучшие ходы для? (1 - Да / Другое - Нет): ")) == 1 else False
+      if show_best:
+         temp_field = int(input("\nВведите поле игры: "))
+         # 5907949846
+         get_best_move(temp_field, computer_value, True)
+
    continue_game = int(input("\nСыграем ещё? (1 - Да / Другое - Нет): ")) == 1
+
 
 print("Спасибо за игру.")
