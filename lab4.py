@@ -94,8 +94,8 @@ def play_game(payments, route, strategy_tree, strategies, step=0.01):
 def process(payments, route, strategy_tree, strategies, step=0.01):
    results = []
    strategy_history = []
-   for _ in range(1000):
-   #while check_end(results):
+   # for _ in range(1000):
+   while check_end(results):
       strategies, result = play_game(payments, route, strategy_tree, strategies, step)
       print(result)
       results.append(result)
@@ -117,7 +117,7 @@ def check_end(results, delta=0.01):
 # strategies = gen_strategies([2, 2])
 
 def __main__():
-   chance_of_good_car = 0.8
+   chance_of_good_car = 0.5
    strategies = {
        # ([хорошая, плохая])
       0: np.array([chance_of_good_car, 1 - chance_of_good_car]),
